@@ -26,6 +26,7 @@ const fallsText = el('falls-text');
 const relicStrip = el('relic-strip');
 const timerText = el('timer-text');
 const eventText = el('event-text');
+const controlsHint = el('controls-hint');
 const statusEl = el('status');
 const titleEl = el('title');
 const relicEl = el('relic');
@@ -65,10 +66,14 @@ function updateHud() {
   if (state.screen === 'boss' && state.boss) {
     timerText.textContent = 'EYE ' + Math.ceil(state.boss.timer) + 's';
     timerText.style.display = 'block';
+    // The Eye is a boss fight: the steering hint is noise here.
+    controlsHint.style.display = 'none';
   } else if (state.zoneIdx === 5) {
     timerText.style.display = 'none';
+    controlsHint.style.display = 'block';
   } else {
     timerText.style.display = 'none';
+    controlsHint.style.display = 'block';
   }
   if (state.lastEvent && eventTimer > 0) {
     eventText.textContent = state.lastEvent;

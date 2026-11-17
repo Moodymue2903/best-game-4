@@ -78,7 +78,7 @@ export function stageCover() {
     { kind: 'gate', x: 2.5, y: 0, z: -55, hp: 1, mult: 1 },
     { kind: 'crow', x: 3.5, y: 2.4, z: -10, hp: 1, shielded: false },
     { kind: 'shielded', x: -3.4, y: 3.1, z: -32, hp: 2, shielded: true },
-    { kind: 'whale', x: -3.2, y: 3.4, z: -18, hp: 99, vx: 0.8 },
+    { kind: 'whale', x: -2.4, y: 3.4, z: -18, hp: 99, vx: 0.8 },
     { kind: 'orb', x: 0.6, y: 1.2, z: -30, hp: 1 },
     { kind: 'orb', x: -2.2, y: 3.2, z: -38, hp: 1 },
   ];
@@ -108,7 +108,7 @@ export function stageBoss() {
     }
     if (state.boss.sweepState === 'idle') {
       state.boss.sweepState = 'warn';
-      state.boss.sweepX = state.x;
+      state.boss.sweepX = 3.5;
     }
     state.entities = [
       { kind: 'crow', x: 4.2, y: 2.6, z: -16, hp: 1, shielded: false },

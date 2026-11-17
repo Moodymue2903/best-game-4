@@ -15,7 +15,7 @@ function emissive(color, intensity) {
   return new THREE.MeshBasicMaterial({ color });
 }
 
-// 3-stop sunset gradient for the sky: sapphire zenith -> indigo ->
+// 4-stop sunset gradient for the sky: sapphire zenith -> indigo ->
 // magenta/amber horizon. A canvas texture fills the screen as the background.
 function skyGradientTexture() {
   const cv = document.createElement('canvas');
@@ -45,8 +45,9 @@ export function createRenderer(canvas) {
   camera.position.set(0, 3.4, 7.5);
 
   // Lights: soft warm key from above + cool fill + warm pink fill so the
-  // clouds read as sunset clouds, not faceted rock.
-  const key = new THREE.DirectionalLight(0xfff2cc, 0.9);
+  // clouds read as sunset clouds, not faceted rock. Ambient is kept low
+  // (0.55) so the key models the puffs instead of washing them flat.
+  const key = new THREE.DirectionalLight(0xfff2cc, 1.0);
   key.position.set(4, 16, 8);
   scene.add(key);
   const fill = new THREE.DirectionalLight(0x5ef2ff, 0.5);
@@ -55,7 +56,11 @@ export function createRenderer(canvas) {
   const pinkFill = new THREE.DirectionalLight(0xff9ecf, 0.6);
   pinkFill.position.set(-6, 8, -2);
   scene.add(pinkFill);
-  scene.add(new THREE.AmbientLight(0xffe9c8, 0.85));
+  // Cyan rim/back light: edges the whale, rider and Titan against the sky.
+  const rim = new THREE.DirectionalLight(0x00e5ff, 0.7);
+  rim.position.set(-6, 8, -14);
+  scene.add(rim);
+  scene.add(new THREE.AmbientLight(0xffe9c8, 0.55));
   const boardLight = new THREE.PointLight(0x9fefff, 5, 12);
   boardLight.position.set(0, 1.5, 1);
   scene.add(boardLight);
@@ -72,7 +77,7 @@ export function createRenderer(canvas) {
   // Canyon walls: instanced smooth cloud puffs on both sides, scrolling.
   // (Spheres, not faceted polyhedra: a detail-0 icosahedron has one normal
   // per face, so even smooth shading reads as chunked rock.)
-  const blobGeo = new THREE.SphereGeometry(1, 6, 4);
+  const blobGeo = new THREE.SphereGeometry(1, 8, 6);
   const blobMat = lambert(0xfff5e0);
   const blobCount = 70;
   const blobs = new THREE.InstancedMesh(blobGeo, blobMat, blobCount);
@@ -80,7 +85,9 @@ export function createRenderer(canvas) {
   scene.add(blobs);
   const blobData = [];
   const tint = new THREE.Color();
-  const palette = [0xfff5e0, 0xfff5e0, 0xffe9b8, 0xffd9a0, 0xffc53d, 0xff9ecf];
+  // Cloud palette: the bulk is white/cream so the canyon reads as cloud,
+  // not khaki rock — gold and pink appear as accents only (2 of 8).
+  const palette = [0xfff5e0, 0xfff5e0, 0xfff5e0, 0xfff8ec, 0xffe9b8, 0xffe9b8, 0xffc53d, 0xff9ecf];
   for (let i = 0; i < blobCount; i++) {
     const side = i % 2 === 0 ? -1 : 1;
     blobData.push({
@@ -152,11 +159,22 @@ export function createRenderer(canvas) {
   scene.add(trailGold);
 
   // Lightning sweep warning plane + strike bolt.
-  const warnMat = new THREE.MeshBasicMaterial({ color: 0xff4d5e, transparent: true, opacity: 0.25, side: THREE.DoubleSide });
+  const warnMat = new THREE.MeshBasicMaterial({ color: 0xff4d5e, transparent: true, opacity: 0.42, side: THREE.DoubleSide });
   const warn = new THREE.Mesh(new THREE.PlaneGeometry(3, 14), warnMat);
   warn.position.set(0, 4, -10);
   warn.visible = false;
   scene.add(warn);
+  // Bright edge around the telegraph so it reads on the magenta sky even
+  // at the dim end of its pulse.
+  const warnEdgePts = [
+    new THREE.Vector3(-1.5, -7, 0), new THREE.Vector3(1.5, -7, 0),
+    new THREE.Vector3(1.5, 7, 0), new THREE.Vector3(-1.5, 7, 0),
+  ];
+  const warnEdgeGeo = new THREE.BufferGeometry().setFromPoints(warnEdgePts);
+  const warnEdge = new THREE.LineLoop(warnEdgeGeo, new THREE.LineBasicMaterial({ color: 0xff8a96 }));
+  warnEdge.position.set(0, 4, -9.95);
+  warnEdge.visible = false;
+  scene.add(warnEdge);
   const boltGeo = new THREE.BufferGeometry();
   boltGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(9 * 3), 3));
   const bolt = new THREE.Line(boltGeo, new THREE.LineBasicMaterial({ color: 0xffffff }));
@@ -167,17 +185,35 @@ export function createRenderer(canvas) {
   // Zap arc: jagged line from the board to the zap point.
   const zapGeo = new THREE.BufferGeometry();
   zapGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(7 * 3), 3));
-  const zapLine = new THREE.Line(zapGeo, new THREE.LineBasicMaterial({ color: 0x5ef2ff }));
+  const zapLine = new THREE.Line(zapGeo, new THREE.LineBasicMaterial({ color: 0x8ef4ff }));
   zapLine.visible = false;
   zapLine.frustumCulled = false;
   scene.add(zapLine);
   const zapLight = new THREE.PointLight(0x5ef2ff, 0, 25);
   scene.add(zapLight);
+  // Flash sprite at the zap impact point: a single thin line is easy to
+  // miss, so the strike blooms where it lands.
+  const flashCv = document.createElement('canvas');
+  flashCv.width = 128;
+  flashCv.height = 128;
+  const fg = flashCv.getContext('2d');
+  const fgr = fg.createRadialGradient(64, 64, 2, 64, 64, 64);
+  fgr.addColorStop(0, 'rgba(255,255,255,1)');
+  fgr.addColorStop(0.25, 'rgba(160,240,255,0.9)');
+  fgr.addColorStop(0.6, 'rgba(94,242,255,0.35)');
+  fgr.addColorStop(1, 'rgba(94,242,255,0)');
+  fg.fillStyle = fgr;
+  fg.fillRect(0, 0, 128, 128);
+  const flashTex = new THREE.CanvasTexture(flashCv);
+  const zapFlash = new THREE.Sprite(new THREE.SpriteMaterial({ map: flashTex, color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  zapFlash.scale.setScalar(4);
+  zapFlash.visible = false;
+  scene.add(zapFlash);
 
   const world = {
     renderer, scene, camera, blobs, blobData, floorBlobs, floorData, rails,
     player, board, rider, trail, trailGeo, trailPoints, trailGold, trailGoldGeo,
-    warn, bolt, zapLine, zapLight, boardLight, dummy, tint,
+    warn, warnEdge, bolt, zapLine, zapLight, zapFlash, boardLight, dummy, tint,
     meshes: new Map(), titan: null, time: 0, shake: 0,
   };
   return world;
@@ -238,6 +274,18 @@ function whaleMesh() {
   tail.rotation.z = -Math.PI / 2;
   tail.position.x = 2.8;
   g.add(tail);
+  // Fluke: two flattened lobes splayed up/down at the tail tip, so the
+  // tail reads as a forked fin from the chase camera (before: a bare cone,
+  // and from behind-top the whale was just a pale capsule). The lobes
+  // spread in the screen plane — a sideways (z) splay is foreshortened
+  // to nothing from this camera.
+  for (const s of [-1, 1]) {
+    const fluke = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.2, 4), lambert(0xfff5e0));
+    fluke.rotation.z = -Math.PI / 2 + s * 0.7; // apex points back, tilted up/down
+    fluke.scale.set(1, 1, 0.3); // flattened toward the camera
+    fluke.position.set(3.6, s * 0.45, 0);
+    g.add(fluke);
+  }
   const eye = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), new THREE.MeshBasicMaterial({ color: 0x0a1030 }));
   eye.position.set(-1.6, 0.3, 0.55);
   g.add(eye);
@@ -272,6 +320,9 @@ function titanMesh() {
   const eyeR = eyeL.clone();
   eyeR.position.x = 1.2;
   g.add(eyeL, eyeR);
+  g.userData.main = main;
+  g.userData.brow = brow;
+  g.userData.eyes = [eyeL, eyeR];
   g.userData.weak = [];
   for (let i = 0; i < 3; i++) {
     const w = new THREE.Mesh(new THREE.SphereGeometry(1.0, 12, 10), new THREE.MeshBasicMaterial({ color: 0xffd23f }));
@@ -390,8 +441,24 @@ export function renderFrame(world, state, dt, camPitch) {
       world.scene.add(world.titan);
     }
     const b = state.boss;
-    world.titan.position.y = 3.5 + Math.sin(t * 0.8) * 0.5;
-    world.titan.rotation.y = Math.sin(t * 0.25) * 0.3;
+    if (state.won) {
+      // Defeated Titan: slumped, sunk, slow — it has fallen, not merely
+      // stopped. Body brightened and scaled up so the silhouette reads
+      // around the end overlay (it sits dead-center behind the title);
+      // eyes dimmed to a dull red (still glowing, but going out).
+      world.titan.position.y = 2.0 + Math.sin(t * 0.3) * 0.15;
+      world.titan.rotation.y = Math.sin(t * 0.1) * 0.1;
+      world.titan.rotation.z = 0.3;
+      world.titan.scale.setScalar(1.3);
+      world.titan.userData.main.material.color.setHex(0xb39ddb);
+      world.titan.userData.brow.material.color.setHex(0x7a5fb0);
+      for (const e of world.titan.userData.eyes) e.material.color.setHex(0xb02030);
+    } else {
+      world.titan.position.y = 3.5 + Math.sin(t * 0.8) * 0.5;
+      world.titan.rotation.y = Math.sin(t * 0.25) * 0.3;
+      world.titan.rotation.z = 0;
+      world.titan.scale.setScalar(1);
+    }
     b.weak.forEach((w, i) => {
       const wm = world.titan.userData.weak[i];
       if (w.dead) { wm.visible = false; return; }
@@ -404,10 +471,13 @@ export function renderFrame(world, state, dt, camPitch) {
     if (b.sweepState === 'warn') {
       world.warn.visible = true;
       world.warn.position.set(b.sweepX, 4, -10);
-      world.warn.material.opacity = 0.2 + Math.sin(t * 20) * 0.12;
+      world.warn.material.opacity = 0.42 + Math.sin(t * 20) * 0.08;
+      world.warnEdge.visible = true;
+      world.warnEdge.position.set(b.sweepX, 4, -9.95);
       world.bolt.visible = false;
     } else if (b.sweepState === 'strike') {
       world.warn.visible = false;
+      world.warnEdge.visible = false;
       world.bolt.visible = true;
       const bp = world.bolt.geometry.attributes.position.array;
       let bx = b.sweepX;
@@ -422,12 +492,14 @@ export function renderFrame(world, state, dt, camPitch) {
       world.bolt.geometry.attributes.position.needsUpdate = true;
     } else {
       world.warn.visible = false;
+      world.warnEdge.visible = false;
       world.bolt.visible = false;
     }
   } else if (world.titan) {
     world.scene.remove(world.titan);
     world.titan = null;
     world.warn.visible = false;
+    world.warnEdge.visible = false;
     world.bolt.visible = false;
   }
 
@@ -447,8 +519,12 @@ export function renderFrame(world, state, dt, camPitch) {
     world.zapLine.geometry.attributes.position.needsUpdate = true;
     world.zapLight.position.set(zx, zy, zz + 4);
     world.zapLight.intensity = 30;
+    world.zapFlash.visible = true;
+    world.zapFlash.position.set(zx, zy, zz);
+    world.zapFlash.scale.setScalar(3.5 + Math.sin(t * 30) * 0.8);
   } else {
     world.zapLine.visible = false;
+    world.zapFlash.visible = false;
     world.zapLight.intensity = 0;
   }
 
