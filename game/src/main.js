@@ -32,7 +32,7 @@ const endEl = el('end');
 const endTitle = el('end-title');
 const endStats = el('end-stats');
 
-let state = createRun(1);
+let state = createRun(1, { lazy: params.get('auto') === 'lazy' });
 let prevGates = 0;
 let prevKills = 0;
 let prevCharge = 100;
@@ -164,7 +164,6 @@ if (params.has('shot')) {
 } else {
   // ---- Live game. ----
   const autoMode = params.has('auto');
-  const lazyMode = params.get('auto') === 'lazy';
   let acc = 0;
   let last = performance.now();
   let shotSignalled = false;
