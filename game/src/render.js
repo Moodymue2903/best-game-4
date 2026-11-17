@@ -8,11 +8,30 @@ import { PALETTE, CANYON_HALF } from './config.js';
 const C = PALETTE;
 
 function lambert(color, opts = {}) {
-  return new THREE.MeshLambertMaterial({ color, flatShading: true, ...opts });
+  return new THREE.MeshLambertMaterial({ color, flatShading: false, ...opts });
 }
 
 function emissive(color, intensity) {
   return new THREE.MeshBasicMaterial({ color });
+}
+
+// 3-stop sunset gradient for the sky: sapphire zenith -> indigo ->
+// magenta/amber horizon. A canvas texture fills the screen as the background.
+function skyGradientTexture() {
+  const cv = document.createElement('canvas');
+  cv.width = 4;
+  cv.height = 512;
+  const g = cv.getContext('2d');
+  const gr = g.createLinearGradient(0, 0, 0, 512);
+  gr.addColorStop(0, '#0e2466');
+  gr.addColorStop(0.55, '#2b1d7a');
+  gr.addColorStop(0.85, '#ff3b8d');
+  gr.addColorStop(1, '#ff9e2c');
+  g.fillStyle = gr;
+  g.fillRect(0, 0, 4, 512);
+  const tx = new THREE.CanvasTexture(cv);
+  tx.colorSpace = THREE.SRGBColorSpace;
+  return tx;
 }
 
 export function createRenderer(canvas) {
@@ -20,19 +39,23 @@ export function createRenderer(canvas) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(C.skyTop);
-  scene.fog = new THREE.Fog(new THREE.Color('#141a44'), 45, 130);
+  scene.background = skyGradientTexture();
+  scene.fog = new THREE.Fog(new THREE.Color('#3a2a6e'), 70, 160);
   const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 300);
   camera.position.set(0, 3.4, 7.5);
 
-  // Lights: warm key + cool fill + a point light that rides with the board.
-  const key = new THREE.DirectionalLight(0xfff2cc, 1.9);
-  key.position.set(6, 12, 4);
+  // Lights: soft warm key from above + cool fill + warm pink fill so the
+  // clouds read as sunset clouds, not faceted rock.
+  const key = new THREE.DirectionalLight(0xfff2cc, 0.9);
+  key.position.set(4, 16, 8);
   scene.add(key);
   const fill = new THREE.DirectionalLight(0x5ef2ff, 0.5);
   fill.position.set(-8, 4, -6);
   scene.add(fill);
-  scene.add(new THREE.AmbientLight(0x8a7bd8, 0.95));
+  const pinkFill = new THREE.DirectionalLight(0xff9ecf, 0.6);
+  pinkFill.position.set(-6, 8, -2);
+  scene.add(pinkFill);
+  scene.add(new THREE.AmbientLight(0xffe9c8, 0.85));
   const boardLight = new THREE.PointLight(0x9fefff, 5, 12);
   boardLight.position.set(0, 1.5, 1);
   scene.add(boardLight);
@@ -46,8 +69,10 @@ export function createRenderer(canvas) {
   starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPos, 3));
   scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.5 })));
 
-  // Canyon walls: instanced low-poly cloud blobs on both sides, scrolling.
-  const blobGeo = new THREE.IcosahedronGeometry(1, 0);
+  // Canyon walls: instanced smooth cloud puffs on both sides, scrolling.
+  // (Spheres, not faceted polyhedra: a detail-0 icosahedron has one normal
+  // per face, so even smooth shading reads as chunked rock.)
+  const blobGeo = new THREE.SphereGeometry(1, 6, 4);
   const blobMat = lambert(0xfff5e0);
   const blobCount = 70;
   const blobs = new THREE.InstancedMesh(blobGeo, blobMat, blobCount);
@@ -78,6 +103,18 @@ export function createRenderer(canvas) {
     floorData.push({ x: -16 + Math.random() * 32, y: -5.5 - Math.random() * 1.5, z: 8 - Math.random() * 100, s: 2 + Math.random() * 2 });
   }
 
+  // Cyan energy rails: glowing streaks along the canyon floor so the
+  // board's path pops with colour even in a thumbnail.
+  const railMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff, transparent: true, opacity: 0.55 });
+  const rails = [];
+  for (let i = 0; i < 6; i++) {
+    const rail = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 26), railMat);
+    rail.rotation.x = -Math.PI / 2;
+    rail.position.set(-7.5 + i * 3, -4.6, 8 - i * 16);
+    scene.add(rail);
+    rails.push(rail);
+  }
+
   // The player: chunky gold-and-cyan hoverboard + cyan rider.
   const player = new THREE.Group();
   const board = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.18, 2.5), lambert(0xffc53d));
@@ -96,6 +133,7 @@ export function createRenderer(canvas) {
   visor.position.set(0, 2.05, -0.3);
   player.add(visor);
   scene.add(player);
+  player.scale.setScalar(1.2); // the rider is the protagonist: it must read as a character, not a dot
 
   // Exhaust trail: a fading line of cyan points behind the board.
   const trailGeo = new THREE.BufferGeometry();
@@ -105,6 +143,13 @@ export function createRenderer(canvas) {
   trail.frustumCulled = false;
   scene.add(trail);
   const trailPoints = [];
+
+  // Gold twin of the exhaust trail: cyan + gold ribbon behind the board.
+  const trailGoldGeo = new THREE.BufferGeometry();
+  trailGoldGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(24 * 3), 3));
+  const trailGold = new THREE.Line(trailGoldGeo, new THREE.LineBasicMaterial({ color: 0xffd23f, transparent: true, opacity: 0.7 }));
+  trailGold.frustumCulled = false;
+  scene.add(trailGold);
 
   // Lightning sweep warning plane + strike bolt.
   const warnMat = new THREE.MeshBasicMaterial({ color: 0xff4d5e, transparent: true, opacity: 0.25, side: THREE.DoubleSide });
@@ -130,8 +175,8 @@ export function createRenderer(canvas) {
   scene.add(zapLight);
 
   const world = {
-    renderer, scene, camera, blobs, blobData, floorBlobs, floorData,
-    player, board, rider, trail, trailGeo, trailPoints,
+    renderer, scene, camera, blobs, blobData, floorBlobs, floorData, rails,
+    player, board, rider, trail, trailGeo, trailPoints, trailGold, trailGoldGeo,
     warn, bolt, zapLine, zapLight, boardLight, dummy, tint,
     meshes: new Map(), titan: null, time: 0, shake: 0,
   };
@@ -140,9 +185,9 @@ export function createRenderer(canvas) {
 
 function gateMesh(mult) {
   const g = new THREE.Group();
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.45, 0.2, 10, 28), new THREE.MeshBasicMaterial({ color: mult > 1 ? 0xffd23f : 0x2eff8a }));
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.45, 0.2, 10, 28), new THREE.MeshBasicMaterial({ color: mult > 1 ? 0xffd23f : 0x2ecc71 }));
   g.add(ring);
-  const inner = new THREE.Mesh(new THREE.TorusGeometry(1.45, 0.07, 8, 28), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 }));
+  const inner = new THREE.Mesh(new THREE.TorusGeometry(1.45, 0.07, 8, 28), new THREE.MeshBasicMaterial({ color: 0x00e5ff, transparent: true, opacity: 0.7 }));
   g.add(inner);
   return g;
 }
@@ -171,26 +216,32 @@ function crowMesh(shielded, brute) {
     eye.position.set(0, 0.25, -0.6);
     g.add(eye);
   }
+  if (!brute) g.scale.setScalar(1.8); // crows must read as a threat, not a speck
   return g;
 }
 
 function whaleMesh() {
   const g = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), lambert(0x5a6fc0));
-  body.scale.set(1.1, 0.9, 2.6);
+  // Long axis across the frame (x), so the whale reads as a whale from the
+  // chase camera instead of a circle seen from behind.
+  const body = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), lambert(0xfff5e0));
+  body.scale.set(2.6, 0.9, 1.1);
   g.add(body);
-  const belly = new THREE.Mesh(new THREE.SphereGeometry(0.85, 12, 10), lambert(0xffffff));
-  belly.scale.set(0.9, 0.55, 2.2);
+  const belly = new THREE.Mesh(new THREE.SphereGeometry(0.85, 12, 10), lambert(0xffd166));
+  belly.scale.set(2.2, 0.55, 0.9);
   belly.position.y = -0.45;
   g.add(belly);
-  const tail = new THREE.Mesh(new THREE.ConeGeometry(0.8, 1.6, 4), lambert(0x5a6fc0));
-  tail.rotation.x = Math.PI / 2;
-  tail.position.z = 2.8;
+  const fin = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.9, 4), lambert(0x00e5ff));
+  fin.position.set(0.3, 0.95, 0);
+  g.add(fin);
+  const tail = new THREE.Mesh(new THREE.ConeGeometry(0.8, 1.6, 4), lambert(0xfff5e0));
+  tail.rotation.z = -Math.PI / 2;
+  tail.position.x = 2.8;
   g.add(tail);
-  const eye = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-  eye.position.set(0.5, 0.3, -1.6);
+  const eye = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), new THREE.MeshBasicMaterial({ color: 0x0a1030 }));
+  eye.position.set(-1.6, 0.3, 0.55);
   g.add(eye);
-  g.scale.setScalar(1.3);
+  g.scale.setScalar(1.8);
   return g;
 }
 
@@ -208,20 +259,22 @@ function gapMesh() {
 
 function titanMesh() {
   const g = new THREE.Group();
-  const main = new THREE.Mesh(new THREE.IcosahedronGeometry(4.2, 1), lambert(0x3a2a5e));
+  const main = new THREE.Mesh(new THREE.IcosahedronGeometry(4.2, 1), lambert(0x6a4a9e));
   main.scale.set(1.25, 1, 1);
   g.add(main);
-  const brow = new THREE.Mesh(new THREE.IcosahedronGeometry(2.2, 0), lambert(0x2a1e44));
+  const brow = new THREE.Mesh(new THREE.IcosahedronGeometry(2.2, 0), lambert(0x4a3572));
   brow.position.set(-2.5, 2.2, 1.5);
   g.add(brow);
-  const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff2e4d }));
-  eyeL.position.set(-1.2, 0.8, -3.6);
+  // Eyes and weak points sit on the FRONT face (+z, toward the camera):
+  // on the far side they were occluded by the Titan's own body.
+  const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff2e4d }));
+  eyeL.position.set(-1.2, 0.8, 3.8);
   const eyeR = eyeL.clone();
   eyeR.position.x = 1.2;
   g.add(eyeL, eyeR);
   g.userData.weak = [];
   for (let i = 0; i < 3; i++) {
-    const w = new THREE.Mesh(new THREE.SphereGeometry(0.85, 12, 10), new THREE.MeshBasicMaterial({ color: 0xffd23f }));
+    const w = new THREE.Mesh(new THREE.SphereGeometry(1.0, 12, 10), new THREE.MeshBasicMaterial({ color: 0xffd23f }));
     g.add(w);
     g.userData.weak.push(w);
   }
@@ -296,6 +349,10 @@ export function renderFrame(world, state, dt, camPitch) {
     world.floorBlobs.setMatrixAt(i, world.dummy.matrix);
   }
   world.floorBlobs.instanceMatrix.needsUpdate = true;
+  for (const rail of world.rails) {
+    rail.position.z += scroll;
+    if (rail.position.z > 10) rail.position.z -= 108;
+  }
 
   // Player: board banks into the steer, rider bobs, board hovers.
   const p = world.player;
@@ -315,6 +372,14 @@ export function renderFrame(world, state, dt, camPitch) {
     pos[i * 3 + 2] = pt[2] + i * 0.55;
   }
   world.trailGeo.attributes.position.needsUpdate = true;
+  const gpos = world.trailGoldGeo.attributes.position.array;
+  for (let i = 0; i < 24; i++) {
+    const pt = world.trailPoints[Math.min(i, world.trailPoints.length - 1)] || [0, 0, 0];
+    gpos[i * 3] = pt[0] - 0.15 + (i * 0.02);
+    gpos[i * 3 + 1] = pt[1] - 0.12;
+    gpos[i * 3 + 2] = pt[2] + i * 0.55;
+  }
+  world.trailGoldGeo.attributes.position.needsUpdate = true;
 
   syncEntities(world, state);
 
@@ -331,7 +396,7 @@ export function renderFrame(world, state, dt, camPitch) {
       const wm = world.titan.userData.weak[i];
       if (w.dead) { wm.visible = false; return; }
       wm.visible = true;
-      wm.position.set(Math.cos(w.angle) * 5.5, Math.sin(w.angle) * 2.2, -3.4);
+      wm.position.set(Math.cos(w.angle) * 5.5, Math.sin(w.angle) * 2.2, 3.4);
       const pulse = 0.85 + Math.sin(t * 5 + i * 2) * 0.15;
       wm.scale.setScalar(pulse);
     });

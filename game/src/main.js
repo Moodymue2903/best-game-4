@@ -8,7 +8,7 @@ import { STEP, THUNDERHEAD_ZONES, THUNDERHEAD_RELICS } from './config.js';
 import { createRenderer, renderFrame, shake } from './render.js';
 import { bindInput, readInput, readRelicPick, getCamPitch } from './input.js';
 import { initAudio, setHum, setMusicLayers, gateChime, zapCrack, squawk, whaleCall, titanRoar, relicPick, winJingle, loseDrone } from './audio.js';
-import { stageCover, stageTitle, fastForward, runToEnd } from './shots.js';
+import { stageCover, stageTitle, stageBoss, runToEnd } from './shots.js';
 
 const params = new URLSearchParams(location.search);
 const canvas = document.getElementById('game');
@@ -23,6 +23,7 @@ const scoreText = el('score-text');
 const zoneText = el('zone-banner');
 const zapFill = el('zap-fill');
 const fallsText = el('falls-text');
+const relicStrip = el('relic-strip');
 const timerText = el('timer-text');
 const eventText = el('event-text');
 const statusEl = el('status');
@@ -55,6 +56,12 @@ function updateHud() {
   const zapFrac = state.zapCooldown > 0 ? 1 - state.zapCooldown / zapMax : 1;
   zapFill.style.width = Math.round(zapFrac * 100) + '%';
   fallsText.textContent = 'FALLS ' + state.falls + '/3';
+  if (state.relics && state.relics.length) {
+    relicStrip.textContent = 'RELICS ' + state.relics.map((r) => r.name).join(' • ');
+    relicStrip.style.display = 'block';
+  } else {
+    relicStrip.style.display = 'none';
+  }
   if (state.screen === 'boss' && state.boss) {
     timerText.textContent = 'EYE ' + Math.ceil(state.boss.timer) + 's';
     timerText.style.display = 'block';
@@ -93,7 +100,7 @@ function showRelicDraft() {
 
 function showEnd() {
   const s = state.stats || { score: state.score, gates: 0, time: 0 };
-  if (state.screen === 'win') {
+  if (state.screen === 'win' || state.won) {
     endTitle.textContent = 'VICTORY — THE TITAN FALLS!';
     endTitle.style.color = '#ffd23f';
   } else {
@@ -146,11 +153,12 @@ function playSounds() {
 if (params.has('shot')) {
   const kind = params.get('shot');
   if (kind === 'cover') state = stageCover();
-  else if (kind === 'play') state = fastForward(1, 100);
+  else if (kind === 'play') state = stageBoss();
   else if (kind === 'victory') state = runToEnd(1);
   else state = stageTitle();
   hud.style.display = 'block';
   titleEl.style.display = 'none';
+  if (kind === 'cover' && state.coverWordmark) el('cover-wordmark').style.display = 'block';
   if (kind === 'title') titleEl.style.display = 'flex';
   if (kind === 'victory') showEnd();
   updateHud();

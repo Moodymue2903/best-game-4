@@ -1,7 +1,9 @@
-// THUNDERHEAD RUN — every tuning number, colour and rule in one place.
-// The game is a 2D runner wearing a 3D camera: the simulation lives on the
-// (x, y) plane and moves forward at a fixed speed; the renderer sells the
-// depth. Nothing in here depends on the screen size or the frame rate.
+// THUNDERHEAD RUN — you are a storm-rider on a hoverboard. You never stop
+// moving. You steer, gate, and zap while the canyon forks every 20 seconds.
+// Every tuning number, colour and rule in one place. The game is a 2D
+// runner wearing a 3D camera: the simulation lives on the (x, y) plane and
+// moves forward at a fixed speed; the renderer sells the depth. Nothing in
+// here depends on the screen size or the frame rate.
 
 /** The simulation's fixed step, in seconds: 60 updates a second. */
 export const STEP = 1 / 60;
@@ -43,6 +45,10 @@ export const THUNDERHEAD_ENEMIES = {
   shieldedCrow: { hp: 2, diveSpeed: 5, score: 200, telegraph: 'SQUAWK' },
   brute: { hp: 3, diveSpeed: 3, score: 400, telegraph: 'RUMBLE' },
   whale: { hp: 0, drift: 1.6, score: 0, telegraph: 'WHALE CALL' },
+  // The Storm Titan: 3 glowing weak points, each taking 3 hits while the
+  // Titan sweeps lightning and moves between positions — the challenge is
+  // aiming under pressure, not grinding HP (3 weak points x 3 hits = 9
+  // zaps inside the 90s Eye timer).
   titan: { weakPoints: 3, weakHp: 3, sweepEvery: 4, sweepWarn: 0.9, score: 500 },
 };
 
@@ -60,7 +66,9 @@ export const THUNDERHEAD_RELICS = [
 export const THUNDERHEAD_TITAN_SLAYER_AFTER_ZONE = 4;
 
 export const PALETTE = {
-  skyTop: '#1a2a78',
+  skyTop: '#0e2466',
+  skyMid: '#2b1d7a',
+  skyHorizon: '#ff3b8d',
   skyBottom: '#0a1030',
   cloudWhite: '#fff5e0',
   cloudGold: '#ffc53d',
