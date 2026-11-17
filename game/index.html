@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>THUNDERHEAD RUN — surf the storm</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1a2a78; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .panel { background: rgba(20, 26, 61, 0.82); border: 3px solid #ffc53d; border-radius: 10px; color: #fff5e0; box-shadow: 0 4px 18px rgba(0,0,0,0.45); }
+  #hud { position: fixed; inset: 0; pointer-events: none; display: none; }
+  #charge-box { position: absolute; top: 14px; left: 14px; width: 260px; padding: 8px 12px; }
+  #charge-box .label { font-weight: 800; letter-spacing: 1px; font-size: 14px; }
+  #charge-bar { height: 14px; background: #0a1030; border: 2px solid #ffc53d; border-radius: 7px; margin-top: 4px; overflow: hidden; }
+  #charge-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #00f0ff, #5ef2ff); transition: width 0.15s; }
+  #score-box { position: absolute; top: 14px; right: 14px; padding: 8px 14px; text-align: right; }
+  #score-box .label { font-size: 12px; letter-spacing: 2px; color: #ffd23f; font-weight: 800; }
+  #score-text { font-size: 28px; font-weight: 900; color: #ffd23f; line-height: 1; }
+  #zone-banner { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); padding: 8px 22px; font-weight: 900; letter-spacing: 2px; color: #ffd23f; font-size: 17px; white-space: nowrap; }
+  #timer-text { position: absolute; top: 64px; left: 50%; transform: translateX(-50%); padding: 5px 14px; font-weight: 900; color: #ff4d5e; font-size: 16px; display: none; }
+  #zap-box { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); width: 220px; padding: 7px 12px; text-align: center; }
+  #zap-box .label { font-size: 12px; letter-spacing: 2px; font-weight: 800; color: #5ef2ff; }
+  #zap-bar { height: 10px; background: #0a1030; border: 2px solid #5ef2ff; border-radius: 5px; margin-top: 4px; overflow: hidden; }
+  #zap-fill { height: 100%; width: 100%; background: #5ef2ff; }
+  #falls-text { position: absolute; bottom: 16px; left: 14px; padding: 8px 12px; font-weight: 800; letter-spacing: 1px; }
+  #controls-hint { position: absolute; bottom: 16px; right: 14px; padding: 8px 12px; font-size: 12px; color: #c9d2ff; }
+  #event-text { position: absolute; top: 110px; left: 50%; transform: translateX(-50%); font-weight: 900; font-size: 22px; color: #ffd23f; text-shadow: 0 2px 8px #000; transition: opacity 0.3s; white-space: nowrap; }
+  .overlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(10, 16, 48, 0.72); color: #fff5e0; text-align: center; z-index: 5; }
+  .overlay h1 { font-size: 64px; margin: 0; color: #ffd23f; letter-spacing: 4px; text-shadow: 0 4px 0 #8a5a00, 0 8px 24px rgba(0,0,0,0.6); }
+  .overlay h2 { font-size: 22px; margin: 6px 0 0; color: #5ef2ff; letter-spacing: 3px; }
+  .overlay .rules { margin: 22px 0 6px; font-size: 17px; line-height: 1.7; background: rgba(20,26,61,0.85); border: 3px solid #ffc53d; border-radius: 12px; padding: 14px 26px; }
+  .overlay .rules b.win { color: #ffd23f; }
+  .overlay .rules b.lose { color: #ff4d5e; }
+  .overlay .controls { font-size: 14px; color: #c9d2ff; margin-top: 10px; line-height: 1.6; }
+  .big-btn { margin-top: 22px; pointer-events: auto; cursor: pointer; font-size: 22px; font-weight: 900; letter-spacing: 2px; color: #141a3d; background: #ffd23f; border: 3px solid #fff5e0; border-radius: 12px; padding: 14px 38px; box-shadow: 0 6px 0 #8a5a00; }
+  .big-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #8a5a00; }
+  #relic { display: none; }
+  #relic h1 { font-size: 40px; }
+  #relic-cards { display: flex; gap: 18px; margin-top: 20px; }
+  .relic-card { pointer-events: auto; cursor: pointer; width: 260px; background: rgba(20,26,61,0.92); border: 3px solid #5ef2ff; border-radius: 12px; padding: 18px; color: #fff5e0; font-family: inherit; text-align: left; }
+  .relic-card:hover { border-color: #ffd23f; }
+  .relic-card b { display: block; font-size: 19px; color: #ffd23f; margin-bottom: 8px; }
+  .relic-card span { font-size: 15px; color: #dfe8ff; }
+  #end { display: none; }
+  #end-title { font-size: 44px; margin: 0; letter-spacing: 2px; text-shadow: 0 4px 0 #000, 0 8px 24px rgba(0,0,0,0.6); }
+  #end-stats { margin-top: 16px; font-size: 18px; background: rgba(20,26,61,0.85); border: 3px solid #ffc53d; border-radius: 12px; padding: 14px 24px; }
+  #mute-btn { position: fixed; bottom: 64px; right: 14px; z-index: 6; pointer-events: auto; cursor: pointer; background: rgba(20,26,61,0.85); color: #fff5e0; border: 2px solid #ffc53d; border-radius: 8px; padding: 6px 10px; font-family: inherit; font-size: 12px; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
+</head>
+<body>
+<canvas id="game" aria-label="THUNDERHEAD RUN: surf a hoverboard down a storm canyon, steer through gates, zap storm-crows, dodge sky-whales, beat the Storm Titan"></canvas>
+<p id="status" role="status" aria-live="polite"></p>
+
+<div id="hud">
+  <div id="charge-box" class="panel"><div class="label" id="charge-text">CHARGE 100</div><div id="charge-bar"><div id="charge-fill"></div></div></div>
+  <div id="score-box" class="panel"><div class="label">SCORE</div><div id="score-text">000000</div></div>
+  <div id="zone-banner" class="panel">THE APPROACH</div>
+  <div id="timer-text" class="panel">EYE 90s</div>
+  <div id="event-text"></div>
+  <div id="zap-box" class="panel"><div class="label">ZAP — CLICK</div><div id="zap-bar"><div id="zap-fill"></div></div></div>
+  <div id="falls-text" class="panel">FALLS 0/3</div>
+  <div id="controls-hint" class="panel">A/D steer &nbsp; SPACE jump &nbsp; SHIFT boost &nbsp; CLICK zap &nbsp; R restart</div>
+</div>
+
+<div id="title" class="overlay">
+  <h1>THUNDERHEAD RUN</h1>
+  <h2>SURF THE STORM &mdash; NEVER STOP</h2>
+  <div class="rules">
+    <b class="win">WIN: zap all 3 weak points of the Storm Titan in The Eye.</b><br>
+    <b class="lose">LOSE: 3 falls off the board, charge hits 0, or the Eye collapses (90s).</b><br>
+    Steer through emerald gates to charge. Zap storm-crows. Dodge the sky-whales.<br>
+    Every 20s the canyon forks: left is fast, right is safe. Draft a relic after each zone.
+  </div>
+  <div class="controls">A / D or &larr; / &rarr; steer &nbsp;&middot;&nbsp; SPACE jump &nbsp;&middot;&nbsp; SHIFT boost &nbsp;&middot;&nbsp; CLICK zap &nbsp;&middot;&nbsp; Mouse aims</div>
+  <button id="start-btn" class="big-btn">START SURFING</button>
+</div>
+
+<div id="relic" class="overlay">
+  <h1>CHOOSE A RELIC</h1>
+  <div id="relic-cards"></div>
+  <div class="controls">Press 1 or 2, or click a card.</div>
+</div>
+
+<div id="end" class="overlay">
+  <h1 id="end-title">VICTORY</h1>
+  <div id="end-stats"></div>
+  <button id="restart-btn" class="big-btn">SURF AGAIN (R)</button>
+</div>
+
+<button id="mute-btn">MUTE (M)</button>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
