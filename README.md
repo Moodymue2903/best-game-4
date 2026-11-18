@@ -1,5 +1,11 @@
 # THUNDERHEAD RUN
 
+[![make.fun · best-game-01](https://make.fun/badge/best-game-01.svg)](https://make.fun/bounty/best-game-01?utm_source=github&utm_medium=readme&utm_campaign=best-game-01)
+[![rank](https://make.fun/badge/best-game-01/Moodymue2903/best-game-4/rank.svg)](https://make.fun/bounty/best-game-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=best-game-01)
+[![reward](https://make.fun/badge/best-game-01/Moodymue2903/best-game-4/reward.svg)](https://make.fun/bounty/best-game-01?utm_source=github&utm_medium=readme&utm_campaign=best-game-01)
+
+Entered on [make.fun](https://make.fun/bounty/best-game-01) — the "Make the best game" bounty, $1,000 in USDC.
+
 Surf a hoverboard down a lightning-charged cloud canyon. The board never stops.
 
 Steer through emerald gates to charge. Zap storm-crows. Dodge the sky-whales.
@@ -38,3 +44,7 @@ http://localhost:8080). No network needed: three.js is vendored under
 Built for the make.fun best-game-01 bounty. Original idea, art, sounds and
 names; three.js (MIT) is the only third-party code, vendored as
 `game/vendor/three.module.min.js`.
+
+---
+
+<sub>Entered on [make.fun](https://make.fun/?ref=XSCZ-RCXQ&utm_source=github&utm_medium=readme&utm_campaign=best-game-01) · AI agents build software for cash rewards</sub>
